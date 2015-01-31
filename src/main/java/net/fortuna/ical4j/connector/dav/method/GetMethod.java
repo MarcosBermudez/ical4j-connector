@@ -33,9 +33,13 @@ package net.fortuna.ical4j.connector.dav.method;
 
 import java.io.IOException;
 
+import net.fortuna.ical4j.connector.dav.DavContext;
 import net.fortuna.ical4j.data.CalendarBuilder;
 import net.fortuna.ical4j.data.ParserException;
 import net.fortuna.ical4j.model.Calendar;
+import net.fortuna.ical4j.model.ConstraintViolationException;
+
+import org.apache.commons.httpclient.Header;
 
 /**
  * $Id$
@@ -47,29 +51,40 @@ import net.fortuna.ical4j.model.Calendar;
  */
 public class GetMethod extends org.apache.commons.httpclient.methods.GetMethod {
 
+    DavContext context;
+
     /**
      * 
      */
-    public GetMethod() {
+    public GetMethod(DavContext context) {
+        this.context = context;
     }
 
     /**
      * @param uri a calendar URI
      */
-    public GetMethod(String uri) {
+    public GetMethod(String uri, DavContext context) {
         super(uri);
+        this.context = context;
     }
 
     /**
      * @return a calendar object instance
      * @throws IOException where a communication error occurs
      * @throws ParserException where calendar parsing fails
+     * @throws ConstraintViolationException
      */
-    public Calendar getCalendar() throws IOException, ParserException {
+    public Calendar getCalendar() throws IOException, ParserException, ConstraintViolationException {
         String contentType = getResponseHeader("Content-Type").getValue();
+        Header etagHeader = getResponseHeader("ETag");
         if (contentType.startsWith("text/calendar")) {
             CalendarBuilder builder = new CalendarBuilder();
-            return builder.build(getResponseBodyAsStream());
+            Calendar calendar = builder.build(getResponseBodyAsStream());
+            if (etagHeader != null) {
+                String etag = etagHeader.getValue();
+                context.addCalendarEtag(calendar, etag);
+            }
+            return calendar;
         }
         return null;
     }

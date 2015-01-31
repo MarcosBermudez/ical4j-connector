@@ -91,7 +91,7 @@ import org.w3c.dom.Node;
  * 
  */
 public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calendar> implements CalendarCollection {
-    
+
     /**
      * Only {@link CalDavCalendarStore} should be calling this, so default modifier is applied.
      * 
@@ -167,8 +167,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     }
 
     /**
-     * @param componentType
-     *            the type of component
+     * @param componentType the type of component
      * @return and array of calendar objects
      */
     public Calendar[] getComponentsByType(String componentType) {
@@ -192,7 +191,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
             ReportInfo info = new ReportInfo(ReportMethod.CALENDAR_QUERY, 1, properties);
             info.setContentElement(filter);
 
-            ReportMethod method = new ReportMethod(getPath(), info);
+            ReportMethod method = new ReportMethod(getPath(), info, context);
             getStore().getClient().execute(method);
             if (method.getStatusCode() == DavServletResponse.SC_MULTI_STATUS) {
                 return method.getCalendars();
@@ -209,6 +208,8 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
             e.printStackTrace();
         } catch (ParserConfigurationException e) {
             e.printStackTrace();
+        } catch (ConstraintViolationException e) {
+            e.printStackTrace();
         }
         return new Calendar[0];
     }
@@ -216,6 +217,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * Provides a human-readable description of the calendar collection.
      */
+    @Override
     public String getDescription() {
         try {
             return getProperty(CalDavPropertyName.CALENDAR_DESCRIPTION, String.class);
@@ -232,6 +234,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * Human-readable name of the collection.
      */
+    @Override
     public String getDisplayName() {
         try {
             return getProperty(DavPropertyName.DISPLAYNAME, String.class);
@@ -249,6 +252,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * Provides a numeric value indicating the maximum number of ATTENDEE properties in any instance of a calendar
      * object resource stored in a calendar collection.
      */
+    @Override
     public Integer getMaxAttendeesPerInstance() {
         try {
             return getProperty(CalDavPropertyName.MAX_ATTENDEES_PER_INSTANCE, Integer.class);
@@ -266,6 +270,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * Provides a DATE-TIME value indicating the latest date and time (in UTC) that the server is willing to accept for
      * any DATE or DATE-TIME value in a calendar object resource stored in a calendar collection.
      */
+    @Override
     public String getMaxDateTime() {
         try {
             return getProperty(CalDavPropertyName.MAX_DATE_TIME, String.class);
@@ -283,6 +288,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * Provides a numeric value indicating the maximum number of recurrence instances that a calendar object resource
      * stored in a calendar collection can generate.
      */
+    @Override
     public Integer getMaxInstances() {
         try {
             return getProperty(CalDavPropertyName.MAX_INSTANCES, Integer.class);
@@ -300,6 +306,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * Provides a numeric value indicating the maximum size of a resource in octets that the server is willing to accept
      * when a calendar object resource is stored in a calendar collection. 0 = no limits.
      */
+    @Override
     public long getMaxResourceSize() {
         try {
             Long size = getProperty(CalDavPropertyName.MAX_RESOURCE_SIZE, Long.class);
@@ -320,6 +327,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * Provides a DATE-TIME value indicating the earliest date and time (in UTC) that the server is willing to accept
      * for any DATE or DATE-TIME value in a calendar object resource stored in a calendar collection.
      */
+    @Override
     public String getMinDateTime() {
         try {
             return getProperty(CalDavPropertyName.MIN_DATE_TIME, String.class);
@@ -336,6 +344,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * Get the list of calendar components (VEVENT, VTODO, etc.) that this collection supports.
      */
+    @Override
     public String[] getSupportedComponentTypes() {
         List<String> supportedComponents = new ArrayList<String>();
 
@@ -367,6 +376,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * The CALDAV:calendar-timezone property is used to specify the time zone the server should rely on to resolve
      * "date" values and "date with local time" values (i.e., floating time) to "date with UTC time" values.
      */
+    @Override
     public Calendar getTimeZone() {
         try {
             String calTimezoneProp = getProperty(CalDavPropertyName.CALENDAR_TIMEZONE, String.class);
@@ -383,10 +393,10 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
             e.printStackTrace();
         } catch (DavException e) {
             e.printStackTrace();
-        } 
+        }
         return new Calendar();
     }
-    
+
     public String getColor() {
         try {
             return getProperty(ICalPropertyName.CALENDAR_COLOR, String.class);
@@ -401,12 +411,12 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
         }
         return null;
     }
-    
+
     public int getOrder() {
         try {
             return getProperty(ICalPropertyName.CALENDAR_ORDER, Integer.class);
         } catch (NullPointerException e) {
-            e.printStackTrace();            
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ObjectStoreException e) {
@@ -420,12 +430,14 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * Add a new calendar object in the collection. Creation will be done on the server right away.
      */
+    @Override
     public void addCalendar(Calendar calendar) throws ObjectStoreException, ConstraintViolationException {
         writeCalendarOnServer(calendar, true);
     }
-    
+
     /**
      * Update a calendar object in the collection. Update will be send to the server right away.
+     * 
      * @param calendar
      * @throws ObjectStoreException
      * @throws ConstraintViolationException
@@ -433,16 +445,20 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     public void updateCalendar(Calendar calendar) throws ObjectStoreException, ConstraintViolationException {
         writeCalendarOnServer(calendar, false);
     }
-    
+
     /**
      * {@inheritDoc}
      */
-    public void writeCalendarOnServer(Calendar calendar, boolean isNew) throws ObjectStoreException, ConstraintViolationException {
+    public void writeCalendarOnServer(Calendar calendar, boolean isNew) throws ObjectStoreException,
+            ConstraintViolationException {
         Uid uid = Calendars.getUid(calendar);
 
-        String path = getPath();
-        if (!path.endsWith("/")) {
-            path = path.concat("/");
+        String path = context.getCalendarHref(calendar);
+        if (path == null) {
+            path = getPath();
+            if (!path.endsWith("/")) {
+                path = path.concat("/");
+            }
         }
         PutMethod putMethod = new PutMethod(path + uid.getValue() + ".ics");
         // putMethod.setAllEtags(true);
@@ -474,12 +490,13 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * {@inheritDoc}
      */
+    @Override
     public Calendar getCalendar(String uid) {
         String path = getPath();
         if (!path.endsWith("/")) {
             path = path.concat("/");
         }
-        GetMethod method = new GetMethod(path + uid + ".ics");
+        GetMethod method = new GetMethod(path + uid + ".ics", context);
         try {
             getStore().getClient().execute(method);
         } catch (Exception e) {
@@ -494,6 +511,9 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
             } catch (ParserException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
+            } catch (ConstraintViolationException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
             }
         } else if (method.getStatusCode() == DavServletResponse.SC_NOT_FOUND) {
             return null;
@@ -504,10 +524,15 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * {@inheritDoc}
      */
+    @Override
     public Calendar removeCalendar(String uid) throws FailedOperationException, ObjectStoreException {
-        Calendar calendar = getCalendar(uid);
 
-        DeleteMethod deleteMethod = new DeleteMethod(getPath() + "/" + uid + ".ics");
+        String path = context.getCalendarHref(uid);
+        if (path == null) {
+            path = getPath() + "/" + uid + ".ics";
+        }
+        Calendar calendar = getCalendar(uid);
+        DeleteMethod deleteMethod = new DeleteMethod(path);
         try {
             getStore().getClient().execute(deleteMethod);
         } catch (IOException e) {
@@ -523,6 +548,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * {@inheritDoc}
      */
+    @Override
     public final void merge(Calendar calendar) throws FailedOperationException, ObjectStoreException {
         try {
             Calendar[] uidCalendars = Calendars.split(calendar);
@@ -537,6 +563,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * {@inheritDoc}
      */
+    @Override
     public Calendar export() throws ObjectStoreException {
         // TODO Auto-generated method stub
         return null;
@@ -545,10 +572,11 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
     /**
      * {@inheritDoc}
      */
+    @Override
     public Calendar[] getComponents() throws ObjectStoreException {
         return getComponentsByType(Component.VEVENT);
     }
-    
+
     /**
      * Get a list of calendar objects of VEVENT type for a specific time period.
      * 
@@ -560,8 +588,8 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * @throws ParserConfigurationException
      * @throws ParserException
      */
-    public Calendar[] getEventsForTimePeriod(DateTime startTime, DateTime endTime)
-            throws IOException, DavException, ParserConfigurationException, ParserException {
+    public Calendar[] getEventsForTimePeriod(DateTime startTime, DateTime endTime) throws IOException, DavException,
+            ParserConfigurationException, ParserException {
 
         DocumentBuilderFactory BUILDER_FACTORY = DocumentBuilderFactory.newInstance();
         BUILDER_FACTORY.setNamespaceAware(true);
@@ -573,7 +601,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
 
         org.w3c.dom.Element calData = DomUtil.createElement(document, CalDavConstants.PROPERTY_CALENDAR_DATA,
                 CalDavConstants.CALDAV_NAMESPACE);
-        
+
         org.w3c.dom.Element calFilter = DomUtil.createElement(document, CalDavConstants.PROPERTY_COMP_FILTER,
                 CalDavConstants.CALDAV_NAMESPACE);
         calFilter.setAttribute(CalDavConstants.ATTRIBUTE_NAME, Calendar.VCALENDAR);
@@ -590,23 +618,20 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
 
         return getObjectsByFilter(calFilter, calData);
     }
-    
+
     /**
-     * Returns a list of calendar objects by calling a REPORT method with a filter. You must pass
-     * a XML element as the argument, the element must contain the filter. For example, if you wish 
-     * to filter objects to only get VEVENT objects you can build a filter like this:
+     * Returns a list of calendar objects by calling a REPORT method with a filter. You must pass a XML element as the
+     * argument, the element must contain the filter. For example, if you wish to filter objects to only get VEVENT
+     * objects you can build a filter like this:
      * 
      * org.w3c.dom.Element calData = DomUtil.createElement(document, CalDavConstants.PROPERTY_CALENDAR_DATA,
-                CalDavConstants.CALDAV_NAMESPACE);
+     * CalDavConstants.CALDAV_NAMESPACE);
      * 
      * org.w3c.dom.Element calFilter = DomUtil.createElement(document, CalDavConstants.PROPERTY_COMP_FILTER,
-                CalDavConstants.CALDAV_NAMESPACE);
-     * calFilter.setAttribute(CalDavConstants.ATTRIBUTE_NAME, Calendar.VCALENDAR);
+     * CalDavConstants.CALDAV_NAMESPACE); calFilter.setAttribute(CalDavConstants.ATTRIBUTE_NAME, Calendar.VCALENDAR);
      * org.w3c.dom.Element eventFilter = DomUtil.createElement(document, CalDavConstants.PROPERTY_COMP_FILTER,
-                CalDavConstants.CALDAV_NAMESPACE);
-     * eventFilter.setAttribute(CalDavConstants.ATTRIBUTE_NAME, Component.VEVENT);
-     * calFilter.appendChild(eventFilter);
-     * collection.getObjectsByFilter(calFilter);
+     * CalDavConstants.CALDAV_NAMESPACE); eventFilter.setAttribute(CalDavConstants.ATTRIBUTE_NAME, Component.VEVENT);
+     * calFilter.appendChild(eventFilter); collection.getObjectsByFilter(calFilter);
      * 
      * Check the examples in rfc4791
      * 
@@ -617,8 +642,8 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * @throws ParserConfigurationException
      * @throws ParserException
      */
-    public Calendar[] getObjectsByFilter(org.w3c.dom.Element filter, org.w3c.dom.Element calData)
-            throws IOException, DavException, ParserConfigurationException, ParserException {
+    public Calendar[] getObjectsByFilter(org.w3c.dom.Element filter, org.w3c.dom.Element calData) throws IOException,
+            DavException, ParserConfigurationException, ParserException {
         ArrayList<Calendar> events = new ArrayList<Calendar>();
 
         ReportInfo rinfo = new ReportInfo(ReportType.register(CalDavConstants.PROPERTY_CALENDAR_QUERY,
@@ -649,7 +674,7 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
         Node importedFilter = document.importNode(filter, true);
         parentFilter.appendChild(importedFilter);
 
-        ReportMethod method = new ReportMethod(this.getPath(), rinfo);
+        ReportMethod method = new ReportMethod(this.getPath(), rinfo, context);
         this.getStore().getClient().execute(method);
         MultiStatus multiStatus = method.getResponseBodyAsMultiStatus();
         MultiStatusResponse[] responses = multiStatus.getResponses();
@@ -673,9 +698,10 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
         }
         return events.toArray(new Calendar[events.size()]);
     }
-    
+
     /**
      * TODO: implement calendar-multiget to fetch objects based on href
+     * 
      * @param hrefs
      * @param calData
      * @return
@@ -684,19 +710,20 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
      * @throws ParserConfigurationException
      * @throws ParserException
      */
-    public Calendar[] getObjectsByMultiget(ArrayList<URI> hrefs, org.w3c.dom.Element calData)
-            throws IOException, DavException, ParserConfigurationException, ParserException {
+    public Calendar[] getObjectsByMultiget(ArrayList<URI> hrefs, org.w3c.dom.Element calData) throws IOException,
+            DavException, ParserConfigurationException, ParserException {
         return new Calendar[0];
     }
-    
+
     /**
      * TODO: implement free-busy-query
+     * 
      * @return
      */
     public Calendar[] doFreeBusyQuery() {
         return new Calendar[0];
     }
-    
+
     public static final DavPropertyNameSet propertiesForFetch() {
         DavPropertyNameSet principalsProps = new DavPropertyNameSet();
 
@@ -734,12 +761,12 @@ public class CalDavCalendarCollection extends AbstractDavObjectCollection<Calend
 
         principalsProps.add(ICalPropertyName.CALENDAR_COLOR);
         principalsProps.add(ICalPropertyName.CALENDAR_ORDER);
-        
+
         return principalsProps;
     }
-    
+
     @Override
     public String toString() {
-        return "Display Name: " +  getDisplayName() + ", id: " + getId();
+        return "Display Name: " + getDisplayName() + ", id: " + getId();
     }
 }

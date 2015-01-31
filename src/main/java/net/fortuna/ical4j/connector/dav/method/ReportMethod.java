@@ -37,17 +37,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.fortuna.ical4j.connector.dav.CalDavConstants;
+import net.fortuna.ical4j.connector.dav.DavContext;
 import net.fortuna.ical4j.connector.dav.property.CalDavPropertyName;
 import net.fortuna.ical4j.connector.dav.property.CardDavPropertyName;
 import net.fortuna.ical4j.data.CalendarBuilder;
 import net.fortuna.ical4j.data.ParserException;
 import net.fortuna.ical4j.model.Calendar;
+import net.fortuna.ical4j.model.ConstraintViolationException;
 import net.fortuna.ical4j.vcard.VCard;
 import net.fortuna.ical4j.vcard.VCardBuilder;
 
 import org.apache.jackrabbit.webdav.DavException;
 import org.apache.jackrabbit.webdav.MultiStatus;
 import org.apache.jackrabbit.webdav.MultiStatusResponse;
+import org.apache.jackrabbit.webdav.property.DavPropertyName;
 import org.apache.jackrabbit.webdav.property.DavPropertySet;
 import org.apache.jackrabbit.webdav.security.report.PrincipalMatchReport;
 import org.apache.jackrabbit.webdav.version.report.ReportInfo;
@@ -67,20 +70,23 @@ public class ReportMethod extends org.apache.jackrabbit.webdav.client.methods.Re
     /**
      * 
      */
-    public static final ReportType CALENDAR_QUERY = ReportType.register("calendar-query", CalDavConstants.CALDAV_NAMESPACE,
-            PrincipalMatchReport.class);
-    public static final ReportType FREEBUSY_QUERY = ReportType.register("free-busy-query", CalDavConstants.CALDAV_NAMESPACE,
-            PrincipalMatchReport.class);
-    public static final ReportType ADDRESSBOOK_QUERY = ReportType.register("addressbook-query", CalDavConstants.CARDDAV_NAMESPACE,
-            PrincipalMatchReport.class);
+    public static final ReportType CALENDAR_QUERY = ReportType.register("calendar-query",
+            CalDavConstants.CALDAV_NAMESPACE, PrincipalMatchReport.class);
+    public static final ReportType FREEBUSY_QUERY = ReportType.register("free-busy-query",
+            CalDavConstants.CALDAV_NAMESPACE, PrincipalMatchReport.class);
+    public static final ReportType ADDRESSBOOK_QUERY = ReportType.register("addressbook-query",
+            CalDavConstants.CARDDAV_NAMESPACE, PrincipalMatchReport.class);
+
+    final DavContext context;
 
     /**
      * @param uri a calendar collection URI
      * @param reportInfo report configuration
      * @throws IOException where communication fails
      */
-    public ReportMethod(String uri, ReportInfo reportInfo) throws IOException {
+    public ReportMethod(String uri, ReportInfo reportInfo, DavContext context) throws IOException {
         super(uri, reportInfo);
+        this.context = context;
     }
 
     /**
@@ -89,21 +95,27 @@ public class ReportMethod extends org.apache.jackrabbit.webdav.client.methods.Re
      * @throws DavException where the DAV method fails
      * @throws DOMException where XML parsing fails
      * @throws ParserException where calendar parsing fails
+     * @throws ConstraintViolationException
      */
-    public Calendar[] getCalendars() throws IOException, DavException, DOMException, ParserException {
+    public Calendar[] getCalendars() throws IOException, DavException, DOMException, ParserException,
+            ConstraintViolationException {
         List<Calendar> calendars = new ArrayList<Calendar>();
         MultiStatus multi = getResponseBodyAsMultiStatus();
         for (MultiStatusResponse response : multi.getResponses()) {
             DavPropertySet props = response.getProperties(200);
             if (props.get(CalDavPropertyName.CALENDAR_DATA) != null) {
                 String value = (String) props.get(CalDavPropertyName.CALENDAR_DATA).getValue();
+                String etag = (String) props.get(DavPropertyName.create("getetag")).getValue();
                 CalendarBuilder builder = new CalendarBuilder();
-                calendars.add(builder.build(new StringReader(value)));
+                Calendar calendar = builder.build(new StringReader(value));
+                context.addCalendarHref(calendar, response.getHref());
+                context.addCalendarEtag(calendar, etag);
+                calendars.add(calendar);
             }
         }
         return calendars.toArray(new Calendar[calendars.size()]);
     }
-    
+
     public VCard[] getVCards() throws IOException, DavException, DOMException {
         List<VCard> cards = new ArrayList<VCard>();
         MultiStatus multi = getResponseBodyAsMultiStatus();

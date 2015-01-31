@@ -275,7 +275,7 @@ public class CardDavCollection extends AbstractDavObjectCollection<VCard> implem
 
             ReportInfo info = new ReportInfo(ReportMethod.ADDRESSBOOK_QUERY, 1, properties);
 
-            ReportMethod method = new ReportMethod(getPath(), info);
+            ReportMethod method = new ReportMethod(getPath(), info, context);
             getStore().getClient().execute(method);
             if (method.getStatusCode() == DavServletResponse.SC_MULTI_STATUS) {
                 return method.getVCards();
