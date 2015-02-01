@@ -10,7 +10,7 @@
 	<groupId>org.mnode.ical4j</groupId>
 	<artifactId>ical4j-connector</artifactId>
 	<name>iCal4j Connector</name>
-	<version>0.9.5-legicloud</version>
+	<version>0.9.6-legicloud-SNAPSHOT</version>
 	<description> A Java library for accessing iCalendar data stores 
 	</description>
 	<url>http://ical4j.sourceforge.net</url>
